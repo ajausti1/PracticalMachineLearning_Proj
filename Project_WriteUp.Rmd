@@ -1,0 +1,81 @@
+---
+title: "Machine Learning Discussion"
+author: "A. Austin"
+date: "November 21, 2015"
+output: html_document
+---
+```{r setup}
+library(caret)
+```
+## Summary
+We create a predictive algorithm to determine an exercise "class" as defined by the dataset (see Appendix). This write-up discusses creation of the model, sample error and the result of applying this algorithm to the course's graded sample set.
+
+## Data Preparation
+
+We determined no cleanup of the data was needed in order to achieve the desired level of error. Our initial data ingestion process was straight forward: read in the dataset, and divide it into test and training sets.
+```{r dataIngestion}
+pmlDS <- read.table(file = "pml-training.csv", header = T, sep = ",", na.strings = c("NA", "#DIV/0!"))
+
+set.seed(42424)
+
+# split the training set into 70/30 training-validation sets
+inTrain <- createDataPartition(pmlDS$classe, p = .7, list = FALSE)
+trainSet <- pmlDS[inTrain,]
+testSet <- pmlDS[-inTrain,]
+```
+
+## Model development
+After reading the [initial paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf), we decided to approach the problem using a random forest model. Initial model development consisted of correlation analysis of variables to reduce redundant influences. Our final chosen model takes the following form:
+```{r finalModelDefinition, cache=T}
+rfModel <- train(classe ~      
+                   pitch_arm + yaw_arm + roll_arm + 
+                   roll_belt + pitch_belt + yaw_belt + 
+                   gyros_belt_x + gyros_belt_y + gyros_belt_z + 
+                   accel_belt_x + accel_belt_y + accel_belt_z + 
+                   magnet_belt_x + magnet_belt_y + magnet_belt_z + 
+                   gyros_arm_x + gyros_arm_y + gyros_arm_z + 
+                   accel_arm_x + accel_arm_y + accel_arm_z + 
+                   magnet_arm_x + magnet_arm_y + magnet_arm_z + 
+                   roll_dumbbell + pitch_dumbbell + yaw_dumbbell, 
+                   method = "rf", data = trainSet)
+```
+
+## Analysis of Error and Cross-Validation
+Our final model shows an OOB estimate of error rate of 1.93%. As discussed in course lectures, cross-validation is not necessary for Random Forest modeling as cross validation is performed by R during the model construction phase.
+
+## Application of Prediciton Model
+```{r applyModel}
+validationPredTrainRF <- predict(rfModel, trainSet)
+
+table(validationPredTrainRF, trainSet$classe)
+
+summary(validationPredTrainRF,n.trees=150)
+
+## Now predict against test set
+validationPredTestRF <- predict(rfModel, testSet)
+table(validationPredTestRF, testSet$classe)
+```
+
+## Assignment Completion
+```{r assignment}
+# Load class training set
+courseTestSet <- read.table(file = "pml-testing.csv", header = T, sep = ",", na.strings = c("NA", "#DIV/0!"))
+
+# Define output / write method
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+# Run the prediction against the set, store result in vector
+resultV <- predict(rfModel, courseTestSet)
+
+pml_write_files(resultV)
+```
+
+## Appendix
+(Weight Lifting Exercises Dataset)[http://groupware.les.inf.puc-rio.br/har#dataset]
+
